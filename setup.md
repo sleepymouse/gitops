@@ -16,6 +16,37 @@ gitops-repo/
 
 The Deployment references Spring Boot Actuator health endpoints (`/actuator/health/liveness` and `/actuator/health/readiness`) — ensure your service has `spring-boot-starter-actuator` on the classpath.
 
+## Registering the repo and bootstrapping ArgoCD
+
+Run these steps in order. Requires a GitHub PAT with `repo` scope set as `$GITHUB_PAT`.
+
+```bash
+# 1. Register the repo as a secret in the argocd namespace
+kubectl create secret generic gitops-repo \
+  --namespace argocd \
+  --from-literal=type=git \
+  --from-literal=url=https://github.com/sleepymouse/gitops.git \
+  --from-literal=username=sleepymouse \
+  --from-literal=password=$GITHUB_PAT
+
+# Label it so ArgoCD recognises it as a repo credential
+kubectl label secret gitops-repo \
+  --namespace argocd \
+  argocd.argoproj.io/secret-type=repository
+
+# 2. Apply the AppProject
+kubectl apply -f gitops-repo/bootstrap/projects.yaml
+
+# 3. Apply the root app
+kubectl apply -f gitops-repo/bootstrap/root-app.yaml
+```
+
+Watch ArgoCD pick it up:
+
+```bash
+kubectl get applications -n argocd
+```
+
 ## One-time prerequisite: create the imagePullSecret
 
 The `ghcr-credentials` secret must exist in the namespace before the pod can pull the image. Run this once after ArgoCD creates the namespace (the `CreateNamespace=true` syncOption handles that):
