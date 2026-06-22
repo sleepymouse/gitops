@@ -59,6 +59,26 @@ kubectl create secret docker-registry ghcr-credentials \
   --namespace=app-motd-dev
 ```
 
+## Automated image tag updates (CI → GitOps)
+
+The motd CI workflow (`.github/workflows/build-publish.yml`) automatically updates `environments/dev/motd-values.yaml` with the new image tag after each successful build. This requires a `GITOPS_PAT` secret in the motd repo so the workflow can write back to the gitops repo.
+
+### Creating the GITOPS_PAT
+
+1. Go to GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
+2. Create a token with `repo` scope
+3. Copy the token value
+
+### Adding the secret to the motd repo
+
+1. Go to `https://github.com/sleepymouse/motd` → Settings → Secrets and variables → Actions
+2. Click **New repository secret**
+3. Name: `GITOPS_PAT`
+4. Value: paste the token created above
+5. Click **Add secret**
+
+Once in place, every push to `main` in the motd repo will commit the new image tag to the gitops repo and ArgoCD will resync automatically.
+
 ## Useful commands
 
 Force ArgoCD to sync immediately rather than waiting for the 3-minute poll interval:
