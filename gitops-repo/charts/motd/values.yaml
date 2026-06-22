@@ -10,8 +10,8 @@ replicaCount: 1
 
 service:
   type: ClusterIP
-  port: 8080
-  targetPort: 8080
+  port: 9000
+  targetPort: 9000
 
 resources:
   requests:
@@ -24,13 +24,13 @@ resources:
 livenessProbe:
   httpGet:
     path: /actuator/health/liveness
-    port: 8080
+    port: 9000
   initialDelaySeconds: 30
   periodSeconds: 10
 
 readinessProbe:
   httpGet:
     path: /actuator/health/readiness
-    port: 8080
+    port: 9000
   initialDelaySeconds: 15
   periodSeconds: 5
