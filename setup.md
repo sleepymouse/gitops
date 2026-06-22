@@ -7,10 +7,10 @@ gitops-repo/
 ├── applications/dev/motd.yaml          ← ArgoCD Application manifest
 ├── charts/motd/
 │   ├── Chart.yaml
-│   ├── values.yaml                     ← base defaults (port 8080, GHCR image)
+│   ├── values.yaml                     ← base defaults (port 8080 (Tomcat default), GHCR image)
 │   └── templates/
 │       ├── deployment.yaml             ← Spring Boot deployment with liveness/readiness probes
-│       └── service.yaml                ← ClusterIP on port 8080
+│       └── service.yaml                ← ClusterIP on port 8080 (Tomcat default)
 └── environments/dev/motd-values.yaml   ← dev overrides
 ```
 
@@ -57,6 +57,32 @@ kubectl create secret docker-registry ghcr-credentials \
   --docker-username=sleepymouse \
   --docker-password=$CR_PAT \
   --namespace=app-motd-dev
+```
+
+## Useful commands
+
+Force ArgoCD to sync immediately rather than waiting for the 3-minute poll interval:
+
+```bash
+kubectl annotate application motd-dev -n argocd argocd.argoproj.io/refresh=hard
+```
+
+Watch pod status:
+
+```bash
+kubectl get pods -n app-motd-dev -w
+```
+
+Check which image a pod is running:
+
+```bash
+kubectl get pod -n app-motd-dev -o jsonpath='{.items[*].spec.containers[*].image}'
+```
+
+Check logs:
+
+```bash
+kubectl logs -n app-motd-dev -l app=motd-dev --tail=50
 ```
 
 ## Note on valueFiles path

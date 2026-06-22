@@ -1,5 +1,5 @@
 image:
-  tag: "0.2.1-SNAPSHOT"
+  tag: "7fe93fa"
 
 replicaCount: 1
 
