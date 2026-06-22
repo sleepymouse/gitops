@@ -3,4 +3,4 @@ name: motd
 description: Message of the Day Spring Boot service
 type: application
 version: 0.2.0
-appVersion: "0.2.0"
+appVersion: "latest"
