@@ -1,0 +1,8 @@
+controller:
+  replicaCount: 1
+
+  service:
+    type: LoadBalancer
+
+  metrics:
+    enabled: true
