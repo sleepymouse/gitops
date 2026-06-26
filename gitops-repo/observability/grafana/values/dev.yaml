@@ -1,0 +1,40 @@
+# Dev credentials - replace with SSO in production
+adminPassword: admin
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Mimir
+        type: prometheus
+        uid: mimir
+        url: http://mimir-nginx.observability.svc.cluster.local/prometheus
+        isDefault: true
+        jsonData:
+          httpMethod: POST
+
+      - name: Loki
+        type: loki
+        uid: loki
+        url: http://loki-gateway.observability.svc.cluster.local
+        jsonData:
+          derivedFields:
+            - name: TraceID
+              matcherRegex: '"traceId":"(\w+)"'
+              url: "$${__value.raw}"
+              datasourceUid: tempo
+
+      - name: Tempo
+        type: tempo
+        uid: tempo
+        url: http://tempo-query-frontend.observability.svc.cluster.local:3200
+        jsonData:
+          tracesToLogsV2:
+            datasourceUid: loki
+            filterByTraceID: true
+          serviceMap:
+            datasourceUid: mimir
+          nodeGraph:
+            enabled: true
+          lokiSearch:
+            datasourceUid: loki

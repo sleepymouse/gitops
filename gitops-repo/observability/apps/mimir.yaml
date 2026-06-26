@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mimir
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  project: observability
+  description: Distributed metrics backend. Stores Prometheus-format metrics from Alloy and exposes a PromQL-compatible query API for Grafana.
+
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: mimir-distributed
+      targetRevision: 6.0.6
+      helm:
+        valueFiles:
+          - $values/gitops-repo/observability/mimir/values/dev.yaml
+    - repoURL: https://github.com/sleepymouse/gitops.git
+      targetRevision: main
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

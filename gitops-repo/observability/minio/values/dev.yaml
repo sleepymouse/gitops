@@ -1,0 +1,31 @@
+mode: standalone
+replicas: 1
+
+persistence:
+  enabled: true
+  size: 20Gi
+
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 250m
+
+# Dev credentials - replace with secrets management in production
+rootUser: minioadmin
+rootPassword: minioadmin
+
+buckets:
+  - name: mimir-blocks
+    policy: none
+  - name: mimir-ruler
+    policy: none
+  - name: mimir-alertmanager
+    policy: none
+  - name: loki-chunks
+    policy: none
+  - name: loki-ruler
+    policy: none
+  - name: loki-admin
+    policy: none
+  - name: tempo-traces
+    policy: none

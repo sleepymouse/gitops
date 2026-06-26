@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability
+  namespace: argocd
+spec:
+  project: observability
+  description: App of Apps entry point for the observability platform. Manages MinIO, Mimir, Loki, Tempo, Grafana, Alloy, kube-state-metrics and node-exporter.
+
+  source:
+    repoURL: https://github.com/sleepymouse/gitops.git
+    targetRevision: main
+    path: gitops-repo/observability/apps
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
