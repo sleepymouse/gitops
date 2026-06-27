@@ -10,14 +10,15 @@ This guide covers standing up the full LGTM observability stack (MinIO, Mimir, L
 
 ## 1. Bootstrap ArgoCD
 
-Apply the root app and AppProject. These are not managed by ArgoCD itself — they must be applied manually.
+Apply the root app and all AppProjects. These are not managed by ArgoCD itself — they must be applied manually.
 
 ```bash
 kubectl apply -f gitops-repo/bootstrap/observability-project.yaml
+kubectl apply -f gitops-repo/bootstrap/infrastructure-project.yaml
 kubectl apply -f gitops-repo/bootstrap/root-app.yaml
 ```
 
-The root app watches `gitops-repo/applications/dev` and will auto-create the `observability` app-of-apps, which in turn deploys all stack components.
+The root app watches `gitops-repo/applications/dev` and will auto-create the `observability` and `infrastructure` app-of-apps, which in turn deploy all stack components.
 
 ## 2. Wait for components to deploy
 
@@ -43,17 +44,32 @@ Full readiness takes 3–5 minutes. All pods should reach `1/1 Running` or `2/2 
 
 If any pods are stuck, check ArgoCD sync status — see the [Debugging](#debugging) section at the end of this guide.
 
-## 3. Access Grafana
+## 3. Configure /etc/hosts
 
-Port-forward the Grafana service:
+The infrastructure stack deploys MetalLB and ingress-nginx. Once ingress-nginx gets its LoadBalancer IP from MetalLB, add the hostnames to your local `/etc/hosts`:
 
 ```bash
-kubectl port-forward -n observability svc/grafana 3000:80
+# Get the assigned IP
+kubectl get svc -n ingress-nginx ingress-nginx-controller
+
+# Add to /etc/hosts (expected IP is 172.20.255.200)
+echo "172.20.255.200  grafana.local argocd.local" | sudo tee -a /etc/hosts
 ```
 
-Open `http://localhost:3000` and log in with `admin` / `admin`.
+## 4. Access Grafana and ArgoCD
 
-## 4. Validate datasources
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| Grafana | `http://grafana.local` | admin / admin |
+| ArgoCD  | `https://argocd.local` | admin / see below |
+
+ArgoCD initial admin password:
+
+```bash
+kubectl get secret -n argocd argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+```
+
+## 5. Validate datasources
 
 Datasources are provisioned via Helm values and are **read-only in the Grafana UI**. If a test fails and you need to change an endpoint, edit `gitops-repo/observability/grafana/values/dev.yaml` and commit — do not try to edit them in the browser.
 
@@ -63,7 +79,7 @@ Go to **Connections → Data Sources** and click **Test** on each datasource:
 - **Loki** — should return green
 - **Tempo** — should return green
 
-## 5. Validate telemetry
+## 6. Validate telemetry
 
 **Metrics (Mimir)**
 
@@ -127,6 +143,15 @@ argocd app sync alloy
 ```bash
 argocd app terminate-op <app-name>
 argocd app sync <app-name> --prune
+```
+
+**ingress-nginx sync error — IngressClass or ValidatingWebhookConfiguration not permitted**
+
+The infrastructure AppProject whitelist must include these cluster-scoped resource types. If missing, apply the updated AppProject:
+
+```bash
+kubectl apply -f gitops-repo/bootstrap/infrastructure-project.yaml
+argocd app sync ingress-nginx
 ```
 
 **App-of-apps permanently OutOfSync — diff shows nothing**
