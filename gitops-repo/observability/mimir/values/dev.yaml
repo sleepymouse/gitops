@@ -63,3 +63,6 @@ alertmanager:
 
 rollout_operator:
   enabled: false
+
+minio:
+  enabled: false

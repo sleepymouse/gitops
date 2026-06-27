@@ -13,6 +13,7 @@
 |------|----------|-----------|---------|
 | 9000 | HTTP     | MinIO | S3 API — used by Mimir, Loki and Tempo for object storage |
 | 9001 | HTTP     | MinIO | Web console UI |
+| 80   | HTTP     | Grafana | Dashboard UI |
 | 4317 | gRPC     | Alloy | OTLP gRPC receiver — accepts telemetry from Spring Boot apps |
 | 4318 | HTTP     | Alloy | OTLP HTTP receiver — accepts telemetry from Spring Boot apps |
 | 4317 | gRPC     | Tempo distributor | OTLP gRPC ingestion from Alloy |
@@ -36,6 +37,6 @@ Allocated block: **8000–8099**
 
 ## Notes
 
-- Mimir and Loki are accessed internally via their nginx gateway on port 80 — no fixed external port required.
+- Mimir and Loki are accessed internally via their gateway service on port 80 — no fixed external port required.
 - Spring Boot services must not use port 9000 (MinIO S3 API) or 9001 (MinIO console).
 - OTLP ports 4317 and 4318 are the OpenTelemetry standard and should be used consistently across all Spring Boot services.
