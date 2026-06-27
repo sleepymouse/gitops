@@ -1,6 +1,12 @@
 # Dev credentials - replace with SSO in production
 adminPassword: admin
 
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  hosts:
+    - grafana.local
+
 datasources:
   datasources.yaml:
     apiVersion: 1
