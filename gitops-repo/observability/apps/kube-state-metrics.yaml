@@ -7,7 +7,6 @@ metadata:
     argocd.argoproj.io/sync-wave: "0"
 spec:
   project: observability
-  description: Exposes Kubernetes object state as Prometheus metrics — deployment replicas, pod status, HPA state, PVC usage, job outcomes.
 
   sources:
     - repoURL: https://prometheus-community.github.io/helm-charts
