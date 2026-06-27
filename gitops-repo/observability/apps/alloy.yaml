@@ -7,7 +7,6 @@ metadata:
     argocd.argoproj.io/sync-wave: "1"
 spec:
   project: observability
-  description: Telemetry collector and forwarder. Receives OTLP from Spring Boot apps, scrapes Kubernetes pod logs, kube-state-metrics and node-exporter, then forwards metrics to Mimir, logs to Loki and traces to Tempo.
 
   sources:
     - repoURL: https://grafana.github.io/helm-charts
