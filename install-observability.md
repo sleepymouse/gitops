@@ -129,6 +129,12 @@ argocd app terminate-op <app-name>
 argocd app sync <app-name> --prune
 ```
 
+**App-of-apps permanently OutOfSync — diff shows nothing**
+
+If the `observability` app shows all child apps as OutOfSync but `argocd app diff` returns nothing, the cause is likely `spec.description` on the Application manifests. The ArgoCD CRD schema does not include this field, so Kubernetes strips it from the stored resource on every apply. ArgoCD then detects a perpetual diff between git (which has the field) and the live resource (which doesn't).
+
+The fix is to remove `description:` from all Application manifests in `gitops-repo/observability/apps/` and `gitops-repo/applications/dev/observability.yaml`. The field has no functional effect — component descriptions are documented in this guide instead.
+
 ---
 
 ## Debugging
