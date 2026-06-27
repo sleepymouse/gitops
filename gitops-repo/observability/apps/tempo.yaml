@@ -7,6 +7,7 @@ metadata:
     argocd.argoproj.io/sync-wave: "-2"
 spec:
   project: observability
+  description: Distributed trace backend. Receives OTLP traces from Alloy and exposes a trace query API for Grafana. Enables service dependency mapping and trace-to-log correlation.
 
   sources:
     - repoURL: https://grafana.github.io/helm-charts

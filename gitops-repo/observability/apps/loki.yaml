@@ -7,6 +7,7 @@ metadata:
     argocd.argoproj.io/sync-wave: "-2"
 spec:
   project: observability
+  description: Distributed log aggregation backend. Collects pod logs via Alloy and exposes a LogQL query API for Grafana.
 
   sources:
     - repoURL: https://grafana.github.io/helm-charts

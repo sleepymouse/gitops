@@ -7,6 +7,7 @@ metadata:
     argocd.argoproj.io/sync-wave: "0"
 spec:
   project: observability
+  description: Exposes host-level hardware and OS metrics as Prometheus metrics — CPU, memory, disk and network per node.
 
   sources:
     - repoURL: https://prometheus-community.github.io/helm-charts

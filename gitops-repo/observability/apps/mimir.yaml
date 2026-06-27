@@ -7,6 +7,7 @@ metadata:
     argocd.argoproj.io/sync-wave: "-2"
 spec:
   project: observability
+  description: Distributed metrics backend. Stores Prometheus-format metrics from Alloy and exposes a PromQL-compatible query API for Grafana.
 
   sources:
     - repoURL: https://grafana.github.io/helm-charts
