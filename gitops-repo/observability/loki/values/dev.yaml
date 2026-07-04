@@ -29,6 +29,13 @@ loki:
       ruler: loki-ruler
       admin: loki-admin
 
+  limits_config:
+    retention_period: 336h
+
+  compactor:
+    retention_enabled: true
+    delete_request_store: s3
+
 # Zero out SimpleScalable components — not used in Distributed mode
 write:
   replicas: 0
@@ -39,6 +46,8 @@ backend:
 
 ingester:
   replicas: 1
+  zoneAwareReplication:
+    enabled: false
 
 distributor:
   replicas: 1
