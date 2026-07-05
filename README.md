@@ -4,7 +4,9 @@ This project was developed as a side project to something else I was building (T
 I found that setting up a production-like environment was considerably more difficult than it initially appeared from the relevant documentation.
 
 After going through considerable effort to get an environment working, I decided to document it, as having a fully constructed working example
-is amazingly useful when trying to attempt something. Hopefully others who tread this path after me will find this guide useful. Consider this a glorified Hello World!
+is amazingly useful when trying to attempt something. Hopefully others who tread this path after me will find this guide useful. 
+
+Consider this a glorified Hello World!
 
 ## 1. What I wanted
 
@@ -22,13 +24,21 @@ This environment needed to have the following characteristics
 
 The project is split into three distinct areas:
 
-1. Getting Kubernetes up and running, with associated tooling
-2. Deployment of an observability environment in Kubernetes
+1. Getting Kubernetes up and running, with associated tooling — see [install-kubernetes.md](install-kubernetes.md)
+2. Deployment of an observability environment in Kubernetes — see [install-observability.md](install-observability.md)
 3. Deployment of the application services
 
 ## 3. Technology
 
 ### Kubernetes
+
+[![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=flat&logo=ubuntu&logoColor=white)](https://ubuntu.com/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
+[![Helm](https://img.shields.io/badge/Helm-0F1689?style=flat&logo=helm&logoColor=white)](https://helm.sh/)
+[![Kind](https://img.shields.io/badge/Kind-326CE5?style=flat&logo=kubernetes&logoColor=white)](https://kind.sigs.k8s.io/)
+[![ArgoCD](https://img.shields.io/badge/ArgoCD-EF7B4D?style=flat&logo=argo&logoColor=white)](https://argo-cd.readthedocs.io/)
+[![kubectl](https://img.shields.io/badge/kubectl-326CE5?style=flat&logo=kubernetes&logoColor=white)](https://kubernetes.io/docs/reference/kubectl/)
+[![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white)](https://github.com/)
 
 1. Everything is hosted on an Ubuntu Linux installation
 2. A GitHub account to keep the gitops project / automation etc
@@ -38,14 +48,6 @@ The project is split into three distinct areas:
    - [Kind](https://kind.sigs.k8s.io/) implementation of Kubernetes
    - [ArgoCD](https://argo-cd.readthedocs.io/)
    - [Kubectl](https://kubernetes.io/docs/reference/kubectl/)
-
-[![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=flat&logo=ubuntu&logoColor=white)](https://ubuntu.com/)
-[![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
-[![Helm](https://img.shields.io/badge/Helm-0F1689?style=flat&logo=helm&logoColor=white)](https://helm.sh/)
-[![Kind](https://img.shields.io/badge/Kind-326CE5?style=flat&logo=kubernetes&logoColor=white)](https://kind.sigs.k8s.io/)
-[![ArgoCD](https://img.shields.io/badge/ArgoCD-EF7B4D?style=flat&logo=argo&logoColor=white)](https://argo-cd.readthedocs.io/)
-[![kubectl](https://img.shields.io/badge/kubectl-326CE5?style=flat&logo=kubernetes&logoColor=white)](https://kubernetes.io/docs/reference/kubectl/)
-[![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white)](https://github.com/)
 
 ### Observability
 
@@ -71,13 +73,12 @@ The project is split into three distinct areas:
 
 ### Application
 
-1. A [Message of the Day server](https://github.com/sleepymouse/motd) - Java / Spring Boot 4
-2. A UI to present messages - React
-
 [![Java](https://img.shields.io/badge/Java-ED8B00?style=flat&logo=openjdk&logoColor=white)](https://www.java.com/)
 [![Spring Boot](https://img.shields.io/badge/SpringBoot-6DB33F?style=flat&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![React](https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB)](https://react.dev/)
 
+1. A [Message of the Day server](https://github.com/sleepymouse/motd) - Java / Spring Boot 4
+2. A UI to present messages - React
 
 
 
