@@ -60,6 +60,13 @@ The project is split into three distinct areas:
 [![node-exporter](https://img.shields.io/badge/node--exporter-E6522C?style=flat&logo=prometheus&logoColor=white)](https://github.com/prometheus/node_exporter)
 [![Alloy](https://img.shields.io/badge/Alloy-FF7B00?style=flat&logo=grafana&logoColor=white)](https://grafana.com/docs/alloy/latest/)
 
+#### Data flow
+
+![Observability data flow: application pods and cluster exporters feed into Alloy, which forwards metrics to Mimir, logs to Loki and traces to Tempo; each backend writes to MinIO for storage and is queried by Grafana](docs/observability-flow.svg)
+
+- 🟧 Metrics &nbsp;·&nbsp; 🟩 Logs &nbsp;·&nbsp; 🟪 Traces &nbsp;·&nbsp; 🟦 Multi-signal / infra
+- Solid arrows: ingest / write path &nbsp;·&nbsp; Dashed arrows: query / read path
+
 | Component | Responsibilities |
 |-----------|-------------------|
 | [MinIO](https://min.io/) | S3-compatible object storage backend for Mimir, Loki and Tempo — same API as AWS S3 so backend config is identical between dev and prod |
