@@ -1,12 +1,68 @@
 # Installing the Observability Stack
 
-This guide covers standing up the full LGTM observability stack (MinIO, Mimir, Loki, Tempo, Grafana, Alloy) on a dev cluster and validating it end-to-end.
+This guide covers standing up the full LGTM observability stack (MinIO, Mimir, Loki, Tempo, Grafana, Alloy, kube-state-metrics, node-exporter) on a dev cluster and validating it end-to-end. It covers only the components deployed via ArgoCD.
+
+## Components
+
+| Component | Helm chart | Responsibilities |
+|-----------|-----------|-------------------|
+| MinIO | `minio/minio` | S3-compatible object storage backend for Mimir, Loki and Tempo — same API as AWS S3 so backend config is identical between dev and prod |
+| Mimir | `grafana/mimir-distributed` | Metric storage, long-term retention, PromQL query support |
+| Loki | `grafana/loki` (distributed mode) | Log storage, LogQL queries, Kubernetes log aggregation |
+| Tempo | `grafana/tempo-distributed` | Distributed trace storage, trace search, service dependency analysis |
+| Grafana | `grafana/grafana` | Dashboards, alerting, metrics/logs/traces exploration; data sources for Mimir, Loki, Tempo |
+| kube-state-metrics | `prometheus-community/kube-state-metrics` | Deployment status, replica counts, pod state, job state, HPA metrics |
+| prometheus-node-exporter | `prometheus-node-exporter` | CPU, memory, disk, network metrics |
+| Alloy | `grafana/alloy` | OTLP ingestion, log collection, metric scraping, forwarding to Mimir, Loki and Tempo |
+
+Repository structure:
+
+```text
+gitops-repo/
+├── bootstrap/
+├── observability/
+│   ├── apps/
+│   ├── grafana/
+│   ├── minio/
+│   ├── mimir/
+│   ├── loki/
+│   ├── tempo/
+│   ├── alloy/
+│   ├── kube-state-metrics/
+│   └── node-exporter/
+└── applications/
+    └── dev/
+```
 
 ## Prerequisites
 
 - kind cluster running
 - ArgoCD installed in the `argocd` namespace
 - This repo cloned and pushed to GitHub (ArgoCD pulls from `https://github.com/sleepymouse/gitops.git`)
+
+### Host inotify limits
+
+kind nodes are containers sharing the host kernel's inotify accounting — it is not namespaced per-container. A full LGTM stack (Loki, Mimir, Tempo, Alloy, Grafana) runs enough pods with fsnotify-based config/cert watchers to exceed the Linux default `fs.inotify.max_user_instances` (128) quickly; on this cluster usage reached ~1823 instances.
+
+Once exhausted, the failure is **not confined to observability pods**. `kube-proxy` on the affected node crashes with `too many open files`, which breaks Service/ClusterIP and DNS routing for every other pod on that node — so ArgoCD, ingress-nginx, MetalLB, and any observability component scheduled there will crash-loop too, each with a different-looking symptom (i/o timeouts to the apiserver, DNS resolution failures, memberlist gossip failures, etc.).
+
+Raise the limits on the actual Docker/kind host before installing (must be run on the host, not via `docker exec` into a node — the setting is shared, but only persists if applied at the host level):
+
+```bash
+sudo tee /etc/sysctl.d/99-kind-inotify.conf <<'CONF'
+fs.inotify.max_user_instances = 8192
+fs.inotify.max_user_watches = 1048576
+CONF
+sudo sysctl --system
+```
+
+If pods are already crash-looping with `too many open files`, check current usage against the limit:
+
+```bash
+sudo sh -c 'grep -c "^inotify" /proc/[0-9]*/fdinfo/* 2>/dev/null | awk -F: "{s+=\$2} END{print s}"'
+```
+
+If usage is close to or above `max_user_instances`, raise the limit further and re-apply.
 
 ## 1. Bootstrap ArgoCD
 
@@ -40,7 +96,7 @@ kubectl get pods -n observability -w
 
 Full readiness takes 3–5 minutes. All pods should reach `1/1 Running` or `2/2 Running`. Expected pod count is approximately 30.
 
-> **Note:** On a single-node kind cluster, `loki-ingester-zone-b-0` and `loki-ingester-zone-c-0` will remain `Pending` — this is expected. Loki runs with zone-aware replication but only zone-a can schedule on a single node. Loki still functions correctly with zone-a alone.
+> **Note:** Loki's `zoneAwareReplication` is disabled in `gitops-repo/observability/loki/values/dev.yaml` (see [Configuration Reference](#configuration-reference) below), so the chart renders a single `loki-ingester` StatefulSet rather than `loki-ingester-zone-a/b/c`. If you see zone-suffixed ingester pods stuck `Pending`, the values file has drifted from this setting — check it before assuming the cluster is at fault.
 
 If any pods are stuck, check ArgoCD sync status — see the [Debugging](#debugging) section at the end of this guide.
 
@@ -104,6 +160,109 @@ You should see log streams from the observability pods.
 **Traces (Tempo)**
 
 Go to **Explore**, select **Tempo**, and use the **Search** tab to look for recent traces. Traces will only appear once a Spring Boot service instrumented with OpenTelemetry is sending data through Alloy.
+
+## Configuration Reference
+
+### Loki retention
+
+Configured in `gitops-repo/observability/loki/values/dev.yaml` under the `loki:` key:
+
+```yaml
+loki:
+  limits_config:
+    retention_period: 336h   # 14 days
+
+  compactor:
+    retention_enabled: true
+    delete_request_store: s3
+```
+
+- `limits_config.retention_period` sets the global retention window (logs older than this are eligible for deletion).
+- `compactor.retention_enabled` must be `true` for the compactor to actually enforce retention — otherwise `retention_period` is recorded but never acted on.
+- `compactor.delete_request_store` must match `storage.type`/`object_store` (here `s3`, backed by MinIO) — the compactor needs somewhere to persist delete request markers.
+- The compactor workload itself (top-level `compactor.replicas` in the same values file) must be `>= 1` — retention deletion is performed by the compactor's regular compaction cycle, no separate job is needed.
+- Verify a values change renders correctly before syncing: `helm template loki grafana/loki --version <chart-version> -f gitops-repo/observability/loki/values/dev.yaml | grep -A3 retention_period`
+
+### Loki zone awareness
+
+The `grafana/loki` chart defaults to `ingester.zoneAwareReplication.enabled: true`, which enforces hard pod anti-affinity requiring each zone's ingester (`zone-a`, `zone-b`, `zone-c`) to run on a distinct node. On a small dev cluster (e.g. kind with one control-plane node and one worker node), only one zone can ever be scheduled — the rest sit `Pending` with `didn't match pod anti-affinity rules` / `untolerated taint`.
+
+Since this dev config already runs with `commonConfig.replication_factor: 1` (no real redundancy expected), zone-awareness provides no benefit here and is disabled in `gitops-repo/observability/loki/values/dev.yaml`:
+
+```yaml
+ingester:
+  replicas: 1
+  zoneAwareReplication:
+    enabled: false
+```
+
+Note `ingester:` is a top-level values key in this chart (alongside `distributor:`, `querier:`, etc.), not nested under `loki:`.
+
+With this disabled, the chart renders a single `loki-ingester` StatefulSet instead of `loki-ingester-zone-a/b/c`. Confirm with:
+
+```bash
+helm template loki grafana/loki --version <chart-version> -f gitops-repo/observability/loki/values/dev.yaml | grep -E "^kind: StatefulSet$|name: loki-ingester"
+```
+
+### Helm chart version management
+
+Before installing or upgrading, verify the pinned chart versions in `gitops-repo/observability/apps/` are valid.
+
+Add Helm repos:
+
+```bash
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add minio https://charts.min.io/
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+```
+
+Check latest available versions:
+
+```bash
+helm search repo grafana/mimir-distributed
+helm search repo grafana/loki
+helm search repo grafana/tempo-distributed
+helm search repo grafana/grafana
+helm search repo grafana/alloy
+helm search repo minio/minio
+helm search repo prometheus-community/kube-state-metrics
+helm search repo prometheus-community/prometheus-node-exporter
+```
+
+Before syncing, dry-run a template render to catch any values key mismatches:
+
+```bash
+helm template <release-name> <repo>/<chart> \
+  --version <chart-version> \
+  -f gitops-repo/observability/<component>/values/dev.yaml
+```
+
+Major version bumps often include breaking changes to values key names. Check the chart changelog with:
+
+```bash
+helm show values <repo>/<chart> --version <chart-version>
+```
+
+## Initial Alerting
+
+Create alerts for:
+
+- Service unavailable
+- High error rate
+- High latency
+- Pod restart storm
+- Node memory pressure
+- Node disk pressure
+
+## Production Tasks
+
+- Configure SSO for Grafana
+- Replace MinIO with real S3 object storage (update endpoint and credentials in Mimir, Loki and Tempo config)
+- Configure retention policies
+- Configure backups
+- Store secrets outside Git
+- Pin Helm chart versions
 
 ## Troubleshooting
 

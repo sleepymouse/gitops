@@ -1,751 +1,83 @@
-# Kind Single-Node Kubernetes Setup on Ubuntu
+# A Practical Demonstration of Developing Against a Kubernetes Environment
 
-This guide installs:
+This project was developed as a side project to something else I was building (The Panopticon - the main project on this GitHub site).
+I found that setting up a production-like environment was considerably more difficult than it initially appeared from the relevant documentation.
 
-* Docker Engine (official Docker packages)
-* Docker Compose v2
-* kubectl
-* Kind (Kubernetes in Docker)
-* A single-node Kubernetes cluster for local development and testing
+After going through considerable effort to get an environment working, I decided to document it, as having a fully constructed working example
+is amazingly useful when trying to attempt something. Hopefully others who tread this path after me will find this guide useful. Consider this a glorified Hello World!
 
-This setup provides a lightweight local Kubernetes environment using upstream Kubernetes components and is suitable for application development, Helm testing, CI/CD validation, and Kubernetes learning.
+## 1. What I wanted
 
----
+A highly automated environment where I could commit code as a developer, which would then go through the build / test / deploy cycle with minimal intervention into
+a production-like environment
 
-# Prerequisites
+This environment needed to have the following characteristics
 
-* Ubuntu 22.04 LTS or newer
-* Internet access
-* User with sudo privileges
+1. Everything built as Docker containers and deployed into a Kubernetes environment
+2. Complete automation from the point of the git commit
+3. Full observability stack
+4. Running a local environment that mimicked a real-world, cloud-based environment as closely as possible
 
----
+## 2. The Parts
 
-# 1. Install Docker Engine and Docker Compose
+The project is split into three distinct areas:
 
-## Remove Old Docker Packages (Optional)
+1. Getting Kubernetes up and running, with associated tooling
+2. Deployment of an observability environment in Kubernetes
+3. Deployment of the application services
 
-```bash
-for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc; do
-  sudo apt-get remove -y $pkg
-done
-```
+## 3. Technology
 
-## Configure Docker's Official Repository
+### Kubernetes
 
-Update package lists and install prerequisites:
+1. Everything is hosted on an Ubuntu Linux installation
+2. A GitHub account to keep the gitops project / automation etc
+3. Locally installed applications
+   - [Docker](https://www.docker.com/)
+   - [Helm](https://helm.sh/)
+   - [Kind](https://kind.sigs.k8s.io/) implementation of Kubernetes
+   - [ArgoCD](https://argo-cd.readthedocs.io/)
+   - [Kubectl](https://kubernetes.io/docs/reference/kubectl/)
 
-```bash
-sudo apt-get update
-sudo apt-get install -y ca-certificates curl
-```
+[![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=flat&logo=ubuntu&logoColor=white)](https://ubuntu.com/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
+[![Helm](https://img.shields.io/badge/Helm-0F1689?style=flat&logo=helm&logoColor=white)](https://helm.sh/)
+[![Kind](https://img.shields.io/badge/Kind-326CE5?style=flat&logo=kubernetes&logoColor=white)](https://kind.sigs.k8s.io/)
+[![ArgoCD](https://img.shields.io/badge/ArgoCD-EF7B4D?style=flat&logo=argo&logoColor=white)](https://argo-cd.readthedocs.io/)
+[![kubectl](https://img.shields.io/badge/kubectl-326CE5?style=flat&logo=kubernetes&logoColor=white)](https://kubernetes.io/docs/reference/kubectl/)
+[![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white)](https://github.com/)
 
-Create the keyring directory:
+### Observability
 
-```bash
-sudo install -m 0755 -d /etc/apt/keyrings
-```
+[![MinIO](https://img.shields.io/badge/MinIO-C72E49?style=flat&logo=minio&logoColor=white)](https://min.io/)
+[![Mimir](https://img.shields.io/badge/Mimir-F9AE41?style=flat&logo=grafana&logoColor=white)](https://grafana.com/oss/mimir/)
+[![Loki](https://img.shields.io/badge/Loki-F5A623?style=flat&logo=grafana&logoColor=white)](https://grafana.com/oss/loki/)
+[![Tempo](https://img.shields.io/badge/Tempo-6E4FF6?style=flat&logo=grafana&logoColor=white)](https://grafana.com/oss/tempo/)
+[![Grafana](https://img.shields.io/badge/Grafana-F46800?style=flat&logo=grafana&logoColor=white)](https://grafana.com/oss/grafana/)
+[![kube-state-metrics](https://img.shields.io/badge/kube--state--metrics-326CE5?style=flat&logo=kubernetes&logoColor=white)](https://github.com/kubernetes/kube-state-metrics)
+[![node-exporter](https://img.shields.io/badge/node--exporter-E6522C?style=flat&logo=prometheus&logoColor=white)](https://github.com/prometheus/node_exporter)
+[![Alloy](https://img.shields.io/badge/Alloy-FF7B00?style=flat&logo=grafana&logoColor=white)](https://grafana.com/docs/alloy/latest/)
 
-Download Docker's GPG key:
+| Component | Responsibilities |
+|-----------|-------------------|
+| [MinIO](https://min.io/) | S3-compatible object storage backend for Mimir, Loki and Tempo — same API as AWS S3 so backend config is identical between dev and prod |
+| [Mimir](https://grafana.com/oss/mimir/) | Metric storage, long-term retention, PromQL query support |
+| [Loki](https://grafana.com/oss/loki/) | Log storage, LogQL queries, Kubernetes log aggregation |
+| [Tempo](https://grafana.com/oss/tempo/) | Distributed trace storage, trace search, service dependency analysis |
+| [Grafana](https://grafana.com/oss/grafana/) | Dashboards, alerting, metrics/logs/traces exploration; data sources for Mimir, Loki, Tempo |
+| [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) | Deployment status, replica counts, pod state, job state, HPA metrics |
+| [prometheus-node-exporter](https://github.com/prometheus/node_exporter) | CPU, memory, disk, network metrics |
+| [Alloy](https://grafana.com/docs/alloy/latest/) | OTLP ingestion, log collection, metric scraping, forwarding to Mimir, Loki and Tempo |
 
-```bash
-sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
-  -o /etc/apt/keyrings/docker.asc
-```
+### Application
 
-Set permissions:
+1. A [Message of the Day server](https://github.com/sleepymouse/motd) - Java / Spring Boot 4
+2. A UI to present messages - React
 
-```bash
-sudo chmod a+r /etc/apt/keyrings/docker.asc
-```
+[![Java](https://img.shields.io/badge/Java-ED8B00?style=flat&logo=openjdk&logoColor=white)](https://www.java.com/)
+[![Spring Boot](https://img.shields.io/badge/SpringBoot-6DB33F?style=flat&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![React](https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB)](https://react.dev/)
 
-Add Docker's repository:
 
-```bash
-echo \
-  "deb [arch=$(dpkg --print-architecture) \
-  signed-by=/etc/apt/keyrings/docker.asc] \
-  https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-```
 
-Update package indexes:
 
-```bash
-sudo apt-get update
-```
-
-## Install Docker
-
-```bash
-sudo apt-get install -y \
-  docker-ce \
-  docker-ce-cli \
-  containerd.io \
-  docker-buildx-plugin \
-  docker-compose-plugin
-```
-
-## Verify Docker Installation
-
-```bash
-docker --version
-```
-
-Expected output:
-
-```text
-Docker version xx.x.x
-```
-
-Test Docker:
-
-```bash
-sudo docker run hello-world
-```
-
-## Enable Docker for Non-Root Users
-
-```bash
-sudo usermod -aG docker $USER
-```
-
-Apply the group membership immediately:
-
-```bash
-newgrp docker
-```
-
-Verify:
-
-```bash
-docker run hello-world
-```
-
----
-
-# 2. Verify Docker Compose
-
-Docker Compose v2 is installed as a Docker plugin.
-
-Check the version:
-
-```bash
-docker compose version
-```
-
-Expected output:
-
-```text
-Docker Compose version v2.x.x
-```
-
-## Test Docker Compose
-
-Create a test directory:
-
-```bash
-mkdir ~/compose-test
-cd ~/compose-test
-```
-
-Create a file named `compose.yaml`:
-
-```yaml
-services:
-  nginx:
-    image: nginx:latest
-    ports:
-      - "8080:80"
-```
-
-Start the container:
-
-```bash
-docker compose up -d
-```
-
-Verify:
-
-```bash
-docker compose ps
-```
-
-Open:
-
-```text
-http://localhost:8080
-```
-
-You should see the NGINX welcome page.
-
-Stop and remove the container:
-
-```bash
-docker compose down
-```
-
----
-
-# 3. Install kubectl
-
-Download the latest stable version:
-
-```bash
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-```
-
-Install:
-
-```bash
-chmod +x kubectl
-sudo mv kubectl /usr/local/bin/
-```
-
-Verify:
-
-```bash
-kubectl version --client
-```
-
-Expected output:
-
-```text
-Client Version: v1.xx.x
-```
-
----
-
-# 4. Install Kind
-
-Download Kind:
-
-```bash
-curl -Lo kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
-```
-
-Install:
-
-```bash
-chmod +x kind
-sudo mv kind /usr/local/bin/
-```
-
-Verify:
-
-```bash
-kind version
-```
-
-Expected output:
-
-```text
-kind version x.x.x
-```
-
-# 5. Install ArgoCD
-
-## Create installation directory
-
-```bash
-mkdir -p argocd-install
-cd argocd-install
-```
-
-## Configuration File
-
-Create a file called kustomization.yaml
-```
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-namespace: argocd
-resources:
-- https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-```
-
-### Deploy ArgoCD
-
-```
-kubectl create namespace argocd
-
-kubectl apply --server-side --force-conflicts -k .
-
-kubectl wait --for=condition=available --timeout=600s deployment/argocd-server -n argocd
-kubectl wait --for=condition=available --timeout=600s deployment/argocd-repo-server -n argocd
-kubectl wait --for=condition=available --timeout=600s deployment/argocd-application-controller -n argocd
-
-kubectl get pods -n argocd
-
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
-
-kubectl port-forward svc/argocd-server -n argocd 8080:443
-```
-
-We should now be able to login using admin / <password from last command>
-
-Location: https://localhost:8080
-
-Reset the password !
-
-
-
-
-# 6. Install Helm
-
-Helm is the package manager for Kubernetes and is commonly used to deploy applications, ingress controllers, monitoring stacks, databases, and other services.
-
-## Install Helm
-
-Download and run the official installation script:
-
-```bash
-curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4
-
-chmod 700 get_helm.sh
-
-./get_helm.sh
-```
-
-
-
-## Verify Installation
-
-```bash
-helm version
-```
-
-Expected output:
-
-```text
-version.BuildInfo{
-  Version:"v4.x.x",
-  ...
-}
-```
-
-
-
-# 7. Create a Kubernetes Cluster with Control Plane and Worker Node
-
-Create a cluster file, kind-dev.yaml:
-
-```yaml
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-
-nodes:
-  - role: control-plane
-  - role: worker
-```
-
-Create the nodes
-
-```bash
-kind create cluster --name dev --config kind-dev.yaml
-```
-
-Verify cluster creation:
-
-```bash
-kubectl cluster-info
-```
-
-List nodes:
-
-```bash
-kubectl get nodes
-```
-
-Expected output:
-
-```text
-NAME                STATUS   ROLES           AGE
-dev-control-plane   Ready    control-plane   1m
-```
-
----
-
-Verify Cluster Health
-
-Check all system pods:
-
-```bash
-kubectl get pods -A
-```
-
-You should see pods in namespaces such as:
-
-```text
-kube-system
-local-path-storage
-```
-
-All pods should eventually reach the `Running` state.
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Install the Argo CD CLI
-
-Download the CLI:
-
-```bash
-VERSION=$(curl -s https://api.github.com/repos/argoproj/argo-cd/releases/latest | grep tag_name | cut -d '"' -f4)
-
-curl -sSL -o argocd \
-  https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
-```
-
-Install:
-
-```bash
-chmod +x argocd
-
-sudo mv argocd /usr/local/bin/
-```
-
-Verify:
-
-```bash
-argocd version --client
-```
-
----
-
-# Log In Using the CLI
-
-In a separate terminal:
-
-```bash
-argocd login localhost:8080 \
-  --username admin \
-  --password <password> \
-  --insecure
-```
-
-Verify:
-
-```bash
-argocd account get-user-info
-```
-
----
-
-# Create a GitOps Application
-
-Assume you have a Git repository:
-
-```text
-https://github.com/myorg/gitops
-```
-
-containing:
-
-```text
-apps/
-└── nginx/
-    ├── deployment.yaml
-    ├── service.yaml
-    └── namespace.yaml
-```
-
-Create an Argo CD application:
-
-```bash
-argocd app create nginx \
-  --repo https://github.com/myorg/gitops.git \
-  --path apps/nginx \
-  --dest-server https://kubernetes.default.svc \
-  --dest-namespace default
-```
-
-Synchronize:
-
-```bash
-argocd app sync nginx
-```
-
-Check status:
-
-```bash
-argocd app get nginx
-```
-
----
-
-# Enable Automatic Synchronization
-
-Enable self-healing and automatic deployment:
-
-```bash
-argocd app set nginx \
-  --sync-policy automated \
-  --self-heal
-```
-
-Verify:
-
-```bash
-argocd app get nginx
-```
-
-You should see:
-
-```text
-Sync Policy: Automated
-```
-
----
-
-# Recommended Repository Structure
-
-For GitOps with GitHub and GHCR:
-
-```text
-github.com/myorg/myapp
-├── application source
-├── Dockerfile
-└── GitHub Actions
-
-github.com/myorg/gitops
-└── environments
-    ├── dev
-    ├── test
-    └── prod
-```
-
-The application repository:
-
-1. Builds containers.
-2. Pushes images to GHCR.
-3. Updates Helm values or manifests in the GitOps repository.
-
-Argo CD watches the GitOps repository and deploys changes automatically.
-
----
-
-# Common Argo CD Commands
-
-List applications:
-
-```bash
-argocd app list
-```
-
-Get application details:
-
-```bash
-argocd app get <app-name>
-```
-
-Synchronize an application:
-
-```bash
-argocd app sync <app-name>
-```
-
-Refresh application status:
-
-```bash
-argocd app refresh <app-name>
-```
-
-Delete an application:
-
-```bash
-argocd app delete <app-name>
-```
-
----
-
-# Uninstall Argo CD
-
-Remove the Helm release:
-
-```bash
-helm uninstall argocd -n argocd
-```
-
-Delete the namespace:
-
-```bash
-kubectl delete namespace argocd
-```
-
-
-
-
----
-
-# 8. Access the Application
-
-Port-forward the service:
-
-```bash
-kubectl port-forward service/nginx 8080:80
-```
-
-Open:
-
-```text
-http://localhost:8080
-```
-
-You should see the NGINX welcome page.
-
-Press `Ctrl+C` to stop port forwarding.
-
----
-
-# 9. Useful Kubernetes Commands
-
-Current context:
-
-```bash
-kubectl config current-context
-```
-
-List nodes:
-
-```bash
-kubectl get nodes
-```
-
-List all pods:
-
-```bash
-kubectl get pods -A
-```
-
-Describe a pod:
-
-```bash
-kubectl describe pod <pod-name>
-```
-
-View logs:
-
-```bash
-kubectl logs <pod-name>
-```
-
-List services:
-
-```bash
-kubectl get svc
-```
-
-List deployments:
-
-```bash
-kubectl get deployments
-```
-
----
-
-# 10. Useful Kind Commands
-
-List clusters:
-
-```bash
-kind get clusters
-```
-
-Export cluster kubeconfig:
-
-```bash
-kind export kubeconfig --name dev
-```
-
-Delete the cluster:
-
-```bash
-kind delete cluster --name dev
-```
-
-Recreate the cluster:
-
-```bash
-kind create cluster \
-  --name dev \
-  --image kindest/node:v1.33.1
-```
-
----
-
-# Common Docker Compose Commands
-
-Start services:
-
-```bash
-docker compose up -d
-```
-
-View running services:
-
-```bash
-docker compose ps
-```
-
-View logs:
-
-```bash
-docker compose logs -f
-```
-
-Restart services:
-
-```bash
-docker compose restart
-```
-
-Stop services:
-
-```bash
-docker compose stop
-```
-
-Remove services and networks:
-
-```bash
-docker compose down
-```
-
----
-
-# Cleanup
-
-Delete the Kubernetes cluster:
-
-```bash
-kind delete cluster --name dev
-```
-
-Remove test Compose files:
-
-```bash
-rm -rf ~/compose-test
-```
-
----
-
-# Next Steps
-
-To make the local cluster more closely resemble EKS or GKE, consider installing:
-
-* Helm
-* NGINX Ingress Controller
-* Cilium
-* MetalLB
-* cert-manager
-
-These can be added later without recreating the cluster.
