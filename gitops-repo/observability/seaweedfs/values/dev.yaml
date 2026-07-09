@@ -33,7 +33,11 @@ allInOne:
       - name: tempo-traces
 
 # Dev credentials - replace with secrets management in production
+# Note: the chart's s3-secret.yaml template gates secret creation on this
+# top-level s3.enableAuth, not allInOne.s3.enableAuth — both must be true
+# for the seaweedfs-s3-secret to actually be rendered.
 s3:
+  enableAuth: true
   credentials:
     admin:
       accessKey: seaweedfsadmin
