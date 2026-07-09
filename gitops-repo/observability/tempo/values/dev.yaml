@@ -9,10 +9,10 @@ storage:
   trace:
     backend: s3
     s3:
-      endpoint: minio.observability.svc.cluster.local:9000
+      endpoint: seaweedfs-all-in-one.observability.svc.cluster.local:8333
       bucket: tempo-traces
-      access_key: minioadmin
-      secret_key: minioadmin
+      access_key: seaweedfsadmin
+      secret_key: seaweedfsadmin
       insecure: true
       forcepathstyle: true
 

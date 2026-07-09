@@ -673,6 +673,6 @@ rm -rf ~/compose-test
 
 # Next Steps
 
-The cluster and ArgoCD created above are the prerequisites for [install-observability.md](install-observability.md), which deploys the rest of the stack — MetalLB, ingress-nginx, MinIO, Mimir, Loki, Tempo, Grafana, Alloy, kube-state-metrics and node-exporter — automatically via ArgoCD's app-of-apps pattern. There is no need to install MetalLB, ingress-nginx, or cert-manager by hand; they are managed by the `infrastructure` app defined in `gitops-repo/applications/dev` once the root app is bootstrapped.
+The cluster and ArgoCD created above are the prerequisites for [install-observability.md](install-observability.md), which deploys the rest of the stack — MetalLB, ingress-nginx, SeaweedFS, Mimir, Loki, Tempo, Grafana, Alloy, kube-state-metrics and node-exporter — automatically via ArgoCD's app-of-apps pattern. There is no need to install MetalLB, ingress-nginx, or cert-manager by hand; they are managed by the `infrastructure` app defined in `gitops-repo/applications/dev` once the root app is bootstrapped.
 
 Continue with [install-observability.md](install-observability.md).

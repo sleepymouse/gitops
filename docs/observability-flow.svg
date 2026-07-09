@@ -1,4 +1,4 @@
-<svg viewBox="-16 -16 1232 932" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram of telemetry flow from sources through Alloy, into Mimir, Loki and Tempo, then to MinIO storage and Grafana for visualization.">
+<svg viewBox="-16 -16 1232 932" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram of telemetry flow from sources through Alloy, into Mimir, Loki and Tempo, then to SeaweedFS storage and Grafana for visualization.">
   <title>Observability data flow</title>
   <style>
     :root {
@@ -111,7 +111,7 @@
   <rect class="label-plate" x="800" y="358" width="90" height="16"/>
   <text class="arrow-label" x="804" y="370" style="fill:var(--traces)">OTLP export</text>
 
-  <!-- ============ ARROWS: backends -> MinIO (solid = storage write) ============ -->
+  <!-- ============ ARROWS: backends -> SeaweedFS (solid = storage write) ============ -->
   <path d="M210,500 Q250,540 300,590" fill="none" stroke="var(--metrics)" stroke-width="2" marker-end="url(#arrow-metrics)"/>
   <path d="M600,500 L400,590" fill="none" stroke="var(--logs)" stroke-width="2" marker-end="url(#arrow-logs)"/>
   <path d="M990,500 Q800,550 460,590" fill="none" stroke="var(--traces)" stroke-width="2" marker-end="url(#arrow-traces)"/>
@@ -183,7 +183,7 @@
   <!-- ============ NODES: Sinks ============ -->
   <g>
     <rect x="80" y="590" width="500" height="90" rx="3" fill="var(--infra-soft)" stroke="var(--infra)" stroke-width="1.5"/>
-    <text class="node-title" x="98" y="630">MinIO</text>
+    <text class="node-title" x="98" y="630">SeaweedFS</text>
     <text class="node-sub" x="98" y="654">S3-compatible object storage — blocks &amp; chunks</text>
   </g>
   <g>

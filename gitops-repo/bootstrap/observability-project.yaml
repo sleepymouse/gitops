@@ -4,11 +4,11 @@ metadata:
   name: observability
   namespace: argocd
 spec:
-  description: Observability platform - MinIO, Mimir, Loki, Tempo, Grafana, Alloy
+  description: Observability platform - SeaweedFS, Mimir, Loki, Tempo, Grafana, Alloy
 
   sourceRepos:
     - https://github.com/sleepymouse/gitops.git
-    - https://charts.min.io/
+    - https://seaweedfs.github.io/seaweedfs/helm
     - https://grafana.github.io/helm-charts
     - https://prometheus-community.github.io/helm-charts
 

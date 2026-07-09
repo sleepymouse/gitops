@@ -1,12 +1,12 @@
 # Installing the Observability Stack
 
-This guide covers standing up the full LGTM observability stack (MinIO, Mimir, Loki, Tempo, Grafana, Alloy, kube-state-metrics, node-exporter) on a dev cluster and validating it end-to-end. It covers only the components deployed via ArgoCD.
+This guide covers standing up the full LGTM observability stack (SeaweedFS, Mimir, Loki, Tempo, Grafana, Alloy, kube-state-metrics, node-exporter) on a dev cluster and validating it end-to-end. It covers only the components deployed via ArgoCD.
 
 ## Components
 
 | Component | Helm chart | Responsibilities |
 |-----------|-----------|-------------------|
-| MinIO | `minio/minio` | S3-compatible object storage backend for Mimir, Loki and Tempo — same API as AWS S3 so backend config is identical between dev and prod |
+| SeaweedFS | `seaweedfs/seaweedfs` (all-in-one mode) | S3-compatible object storage backend for Mimir, Loki and Tempo — same API as AWS S3 so backend config is identical between dev and prod |
 | Mimir | `grafana/mimir-distributed` | Metric storage, long-term retention, PromQL query support |
 | Loki | `grafana/loki` (distributed mode) | Log storage, LogQL queries, Kubernetes log aggregation |
 | Tempo | `grafana/tempo-distributed` | Distributed trace storage, trace search, service dependency analysis |
@@ -23,7 +23,7 @@ gitops-repo/
 ├── observability/
 │   ├── apps/
 │   ├── grafana/
-│   ├── minio/
+│   ├── seaweedfs/
 │   ├── mimir/
 │   ├── loki/
 │   ├── tempo/
@@ -82,7 +82,7 @@ The stack deploys in sync waves to ensure dependencies are ready before dependen
 
 | Wave | Components |
 |------|------------|
-| -3   | MinIO |
+| -3   | SeaweedFS |
 | -2   | Mimir, Loki, Tempo |
 | -1   | Grafana |
 |  0   | kube-state-metrics, node-exporter |
@@ -179,7 +179,7 @@ loki:
 
 - `limits_config.retention_period` sets the global retention window (logs older than this are eligible for deletion).
 - `compactor.retention_enabled` must be `true` for the compactor to actually enforce retention — otherwise `retention_period` is recorded but never acted on.
-- `compactor.delete_request_store` must match `storage.type`/`object_store` (here `s3`, backed by MinIO) — the compactor needs somewhere to persist delete request markers.
+- `compactor.delete_request_store` must match `storage.type`/`object_store` (here `s3`, backed by SeaweedFS) — the compactor needs somewhere to persist delete request markers.
 - The compactor workload itself (top-level `compactor.replicas` in the same values file) must be `>= 1` — retention deletion is performed by the compactor's regular compaction cycle, no separate job is needed.
 - Verify a values change renders correctly before syncing: `helm template loki grafana/loki --version <chart-version> -f gitops-repo/observability/loki/values/dev.yaml | grep -A3 retention_period`
 
@@ -212,7 +212,7 @@ Add Helm repos:
 
 ```bash
 helm repo add grafana https://grafana.github.io/helm-charts
-helm repo add minio https://charts.min.io/
+helm repo add seaweedfs https://seaweedfs.github.io/seaweedfs/helm
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 ```
@@ -225,7 +225,7 @@ helm search repo grafana/loki
 helm search repo grafana/tempo-distributed
 helm search repo grafana/grafana
 helm search repo grafana/alloy
-helm search repo minio/minio
+helm search repo seaweedfs/seaweedfs
 helm search repo prometheus-community/kube-state-metrics
 helm search repo prometheus-community/prometheus-node-exporter
 ```
@@ -258,7 +258,7 @@ Create alerts for:
 ## Production Tasks
 
 - Configure SSO for Grafana
-- Replace MinIO with real S3 object storage (update endpoint and credentials in Mimir, Loki and Tempo config)
+- Replace SeaweedFS with real S3 object storage (update endpoint and credentials in Mimir, Loki and Tempo config)
 - Configure retention policies
 - Configure backups
 - Store secrets outside Git
@@ -268,14 +268,14 @@ Create alerts for:
 
 **Mimir pods crashing with "bucket does not exist"**
 
-The Mimir Helm chart includes a bundled MinIO subchart (`mimir-minio`) which is enabled by default. When enabled, it overrides the storage configuration and causes Mimir to connect to `mimir-minio` instead of the standalone MinIO — which doesn't have the right buckets. The values already have `minio.enabled: false` to prevent this, but if you see this error verify that setting is in place in `gitops-repo/observability/mimir/values/dev.yaml`.
+The Mimir Helm chart includes a bundled MinIO subchart (`mimir-minio`) which is enabled by default. When enabled, it overrides the storage configuration and causes Mimir to connect to `mimir-minio` instead of the standalone SeaweedFS — which doesn't have the right buckets. The values already have `minio.enabled: false` to prevent this, but if you see this error verify that setting is in place in `gitops-repo/observability/mimir/values/dev.yaml`.
 
-If the setting is correct but the error persists, the standalone MinIO's bucket creation job may not have run. Exec into the MinIO pod to create the buckets manually:
+If the setting is correct but the error persists, the SeaweedFS bucket-creation hook Job may not have run. Exec into the SeaweedFS pod to create the buckets manually (the S3-compatible CLI here is `mc`, MinIO's client, which works against any S3-compatible endpoint including SeaweedFS):
 
 ```bash
-MINIO_POD=$(kubectl get pod -n observability -l app=minio -o jsonpath='{.items[0].metadata.name}')
-kubectl exec -n observability $MINIO_POD -- /bin/bash -c \
-  "mc alias set local http://localhost:9000 minioadmin minioadmin && \
+SEAWEEDFS_POD=$(kubectl get pod -n observability -l app.kubernetes.io/component=seaweedfs-all-in-one -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n observability $SEAWEEDFS_POD -- /bin/bash -c \
+  "mc alias set local http://localhost:8333 seaweedfsadmin seaweedfsadmin && \
    mc mb local/mimir-blocks && \
    mc mb local/mimir-ruler && \
    mc mb local/mimir-alertmanager"
@@ -421,7 +421,7 @@ kubectl get svc -n observability
 kubectl get svc -n observability <service-name>
 ```
 
-**Jobs** (useful for checking MinIO bucket creation)
+**Jobs** (useful for checking SeaweedFS bucket creation)
 
 ```bash
 kubectl get jobs -n observability
@@ -434,8 +434,8 @@ kubectl logs -n observability job/<job-name>
 # Grafana
 kubectl port-forward -n observability svc/grafana 3000:80
 
-# MinIO S3 API
-kubectl port-forward -n observability svc/minio 9000:9000
+# SeaweedFS S3 API
+kubectl port-forward -n observability svc/seaweedfs-all-in-one 8333:8333
 
 # ArgoCD
 kubectl port-forward -n argocd svc/argocd-server 8080:443

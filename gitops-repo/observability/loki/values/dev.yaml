@@ -19,9 +19,9 @@ loki:
   storage:
     type: s3
     s3:
-      endpoint: minio.observability.svc.cluster.local:9000
-      accessKeyId: minioadmin
-      secretAccessKey: minioadmin
+      endpoint: seaweedfs-all-in-one.observability.svc.cluster.local:8333
+      accessKeyId: seaweedfsadmin
+      secretAccessKey: seaweedfsadmin
       insecure: true
       s3ForcePathStyle: true
     bucketNames:

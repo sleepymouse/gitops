@@ -51,7 +51,7 @@ The project is split into three distinct areas:
 
 ### Observability
 
-[![MinIO](https://img.shields.io/badge/MinIO-C72E49?style=flat&logo=minio&logoColor=white)](https://min.io/)
+[![SeaweedFS](https://img.shields.io/badge/SeaweedFS-2E8B57?style=flat&logo=apache&logoColor=white)](https://github.com/seaweedfs/seaweedfs)
 [![Mimir](https://img.shields.io/badge/Mimir-F9AE41?style=flat&logo=grafana&logoColor=white)](https://grafana.com/oss/mimir/)
 [![Loki](https://img.shields.io/badge/Loki-F5A623?style=flat&logo=grafana&logoColor=white)](https://grafana.com/oss/loki/)
 [![Tempo](https://img.shields.io/badge/Tempo-6E4FF6?style=flat&logo=grafana&logoColor=white)](https://grafana.com/oss/tempo/)
@@ -62,14 +62,14 @@ The project is split into three distinct areas:
 
 #### Data flow
 
-![Observability data flow: application pods and cluster exporters feed into Alloy, which forwards metrics to Mimir, logs to Loki and traces to Tempo; each backend writes to MinIO for storage and is queried by Grafana](docs/observability-flow.svg)
+![Observability data flow: application pods and cluster exporters feed into Alloy, which forwards metrics to Mimir, logs to Loki and traces to Tempo; each backend writes to SeaweedFS for storage and is queried by Grafana](docs/observability-flow.svg)
 
 - 🟧 Metrics &nbsp;·&nbsp; 🟩 Logs &nbsp;·&nbsp; 🟪 Traces &nbsp;·&nbsp; 🟦 Multi-signal / infra
 - Solid arrows: ingest / write path &nbsp;·&nbsp; Dashed arrows: query / read path
 
 | Component | Responsibilities |
 |-----------|-------------------|
-| [MinIO](https://min.io/) | S3-compatible object storage backend for Mimir, Loki and Tempo — same API as AWS S3 so backend config is identical between dev and prod |
+| [SeaweedFS](https://github.com/seaweedfs/seaweedfs) | S3-compatible object storage backend for Mimir, Loki and Tempo — same API as AWS S3 so backend config is identical between dev and prod |
 | [Mimir](https://grafana.com/oss/mimir/) | Metric storage, long-term retention, PromQL query support |
 | [Loki](https://grafana.com/oss/loki/) | Log storage, LogQL queries, Kubernetes log aggregation |
 | [Tempo](https://grafana.com/oss/tempo/) | Distributed trace storage, trace search, service dependency analysis |
