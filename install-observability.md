@@ -161,6 +161,18 @@ You should see log streams from the observability pods.
 
 Go to **Explore**, select **Tempo**, and use the **Search** tab to look for recent traces. Traces will only appear once a Spring Boot service instrumented with OpenTelemetry is sending data through Alloy.
 
+## 7. Pre-built dashboards
+
+Grafana comes up with five community dashboards pre-provisioned (see [Pre-built dashboards](#pre-built-dashboards) below for what and why). Go to **Dashboards** and confirm all five are listed:
+
+- Node Exporter Full
+- Kubernetes / Views / Global
+- JVM (Micrometer)
+- Logs / App
+- K8S Dashboard for Alloy Metrics exported to Mimir - Microservices Overview
+
+Node Exporter Full and Kubernetes / Views / Global should render data immediately (`node-exporter` and `kube-state-metrics` are already scraped by Alloy). JVM (Micrometer) will stay empty until a Spring Boot service exposes `/actuator/prometheus` and Alloy is configured to scrape it — that's an app-side change, not part of this stack.
+
 ## Configuration Reference
 
 ### Loki retention
@@ -203,6 +215,28 @@ With this disabled, the chart renders a single `loki-ingester` StatefulSet inste
 ```bash
 helm template loki grafana/loki --version <chart-version> -f gitops-repo/observability/loki/values/dev.yaml | grep -E "^kind: StatefulSet$|name: loki-ingester"
 ```
+
+### Pre-built dashboards
+
+Configured in `gitops-repo/observability/grafana/values/dev.yaml` under `dashboards:`, with `dashboardProviders:` set to a single `type: file` provider watching `/var/lib/grafana/dashboards/default`.
+
+The Grafana chart's `download-dashboards` init container fetches each dashboard's JSON from grafana.com on pod start using the `gnetId`/`revision` pair, then does an in-place substitution of every panel's `datasource` field to point at the name given — so `datasource: Mimir` and `datasource: Loki` must match the `name:` fields under the `datasources:` block (not the `uid:` values), or the substitution silently no-ops and panels come up with no data source selected.
+
+| Dashboard | gnetId | Why |
+|---|---|---|
+| Node Exporter Full | 1860 | The de-facto standard dashboard for `node-exporter` host metrics (CPU, memory, disk, network) — most widely used dashboard in the ecosystem, so no reason to build a custom one |
+| Kubernetes / Views / Global | 15757 | Cluster/namespace/pod resource view built on `kube-state-metrics`, actively maintained (dotdc/grafana-dashboards-kubernetes), designed for kube-prometheus-stack but works unmodified against Mimir since it's Prometheus-compatible |
+| JVM (Micrometer) | 4701 | Heap, GC, thread pool metrics for Micrometer-instrumented apps — directly relevant since this project's services are Spring Boot 4. Stays empty until a service exposes `/actuator/prometheus` and Alloy scrapes it (app-side work, not covered by this repo) |
+| Logs / App | 13639 | Generic Loki log viewer (filter by namespace/pod/container) — covers ad-hoc log browsing without needing to hand-write LogQL in Explore every time |
+| K8S Dashboard for Alloy Metrics exported to Mimir - Microservices Overview | 24685 | Specifically built for the Alloy → Mimir path this stack uses, rather than a generic Prometheus/node-exporter dashboard repurposed for Alloy |
+
+Revisions are pinned (not left to float to "latest") for the same reason chart versions are pinned — an unannounced dashboard JSON change on grafana.com shouldn't be able to silently change what a synced dev environment renders. Check for newer revisions periodically:
+
+```bash
+curl -s https://grafana.com/api/dashboards/<gnetId>/revisions | jq '.items[-1].revision'
+```
+
+Tempo intentionally has no pre-built dashboard here — trace exploration is normally done via Grafana's **Explore** + **Search** UI and the Tempo service graph (already wired up via `serviceMap.datasourceUid` in the Tempo datasource config), not a static dashboard.
 
 ### Helm chart version management
 

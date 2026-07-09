@@ -44,3 +44,41 @@ datasources:
             enabled: true
           lokiSearch:
             datasourceUid: loki
+
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: default
+        orgId: 1
+        folder: ""
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/default
+
+# Pre-built community dashboards, pulled from grafana.com on pod start.
+# `datasource` is matched by name against the `datasources` block above.
+dashboards:
+  default:
+    node-exporter-full:
+      gnetId: 1860
+      revision: 45
+      datasource: Mimir
+    kubernetes-views-global:
+      gnetId: 15757
+      revision: 43
+      datasource: Mimir
+    jvm-micrometer:
+      gnetId: 4701
+      revision: 10
+      datasource: Mimir
+    logs-app:
+      gnetId: 13639
+      revision: 2
+      datasource: Loki
+    alloy-k8s-microservices:
+      gnetId: 24685
+      revision: 1
+      datasource: Mimir
