@@ -1,4 +1,19 @@
 alloy:
+  # The chart's Service only exposes the default http-metrics (12345) port
+  # unless extra ports are listed here - without this, nothing outside the
+  # pod (e.g. Spring Boot apps pushing OTLP) can reach the receiver on
+  # alloy.observability.svc.cluster.local, even though Alloy itself listens
+  # on 4317/4318 fine.
+  extraPorts:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+      protocol: TCP
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+      protocol: TCP
+
   configMap:
     content: |
       // OTLP receiver - accepts telemetry from Spring Boot apps
