@@ -68,7 +68,7 @@ alloy:
 
       // Scrape node-exporter
       prometheus.scrape "node_exporter" {
-        targets    = [{"__address__" = "prometheus-node-exporter.observability.svc.cluster.local:9100"}]
+        targets    = [{"__address__" = "node-exporter-prometheus-node-exporter.observability.svc.cluster.local:9100"}]
         forward_to = [prometheus.remote_write.mimir.receiver]
       }
 
