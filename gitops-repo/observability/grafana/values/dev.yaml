@@ -11,6 +11,14 @@ persistence:
     - ReadWriteOnce
   size: 1Gi
 
+# The pod's default securityContext.fsGroup: 472 already gives the grafana
+# user group ownership of the volume at mount time. initChownData's
+# recursive chown is redundant on top of that, and breaks once Grafana has
+# created its own 0700 png/csv/pdf dirs on the volume - its capability set
+# (CHOWN only, no DAC_OVERRIDE) can't traverse into them on a re-chown.
+initChownData:
+  enabled: false
+
 ingress:
   enabled: true
   ingressClassName: nginx
