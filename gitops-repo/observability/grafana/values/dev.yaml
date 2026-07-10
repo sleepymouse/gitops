@@ -1,6 +1,16 @@
 # Dev credentials - replace with SSO in production
 adminPassword: admin
 
+# Without this, admin password changes and any UI-created state (dashboards,
+# alert rules, etc.) don't survive a pod restart/recreation - the chart
+# defaults to no persistent storage.
+persistence:
+  enabled: true
+  type: pvc
+  accessModes:
+    - ReadWriteOnce
+  size: 1Gi
+
 ingress:
   enabled: true
   ingressClassName: nginx
