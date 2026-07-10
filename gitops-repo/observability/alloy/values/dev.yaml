@@ -157,5 +157,38 @@ alloy:
         forward_to = [prometheus.remote_write.mimir.receiver]
       }
 
+      // Scrape kubelet's own /metrics endpoint (separate from /metrics/cadvisor
+      // above) - required for the Alloy K8S Microservices dashboard's Persistent
+      // Volume panels, which read kubelet_volume_stats_available_bytes/_used_bytes.
+      // Same node discovery, same RBAC ("nodes/metrics" covers every /metrics*
+      // path kubelet exposes), just a different __metrics_path__.
+      discovery.relabel "kubelet" {
+        targets = discovery.kubernetes.nodes.targets
+
+        rule {
+          source_labels = ["__meta_kubernetes_node_address_InternalIP"]
+          target_label  = "__address__"
+          replacement   = "${1}:10250"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_node_name"]
+          target_label  = "node"
+        }
+        rule {
+          target_label = "__metrics_path__"
+          replacement  = "/metrics"
+        }
+      }
+
+      prometheus.scrape "kubelet" {
+        targets           = discovery.relabel.kubelet.output
+        scheme            = "https"
+        bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        tls_config {
+          insecure_skip_verify = true
+        }
+        forward_to = [prometheus.remote_write.mimir.receiver]
+      }
+
 controller:
   type: daemonset
