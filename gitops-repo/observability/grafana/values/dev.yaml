@@ -88,7 +88,12 @@ dashboards:
       gnetId: 13639
       revision: 2
       datasource: Loki
+    # Forked from gnetId 24685 (revision 1): every panel hardcodes the
+    # original author's datasource UID (PAE45454D0EDB9216) via the newer
+    # multi-line `"datasource": {"type":..., "uid":...}` object form, which
+    # the chart's single-line sed substitution can't rewrite - unlike the
+    # other dashboards here. Fixed copy lives at
+    # gitops-repo/observability/grafana/dashboards/alloy-k8s-microservices.json
+    # with that UID replaced by our real "mimir" datasource uid.
     alloy-k8s-microservices:
-      gnetId: 24685
-      revision: 1
-      datasource: Mimir
+      url: https://raw.githubusercontent.com/sleepymouse/gitops/main/gitops-repo/observability/grafana/dashboards/alloy-k8s-microservices.json
