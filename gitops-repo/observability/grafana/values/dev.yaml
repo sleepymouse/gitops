@@ -99,9 +99,16 @@ dashboards:
     # Forked from gnetId 24685 (revision 1): every panel hardcodes the
     # original author's datasource UID (PAE45454D0EDB9216) via the newer
     # multi-line `"datasource": {"type":..., "uid":...}` object form, which
-    # the chart's single-line sed substitution can't rewrite - unlike the
-    # other dashboards here. Fixed copy lives at
+    # the chart's single-line sed substitution (the plain `datasource: Mimir`
+    # string form used above) can't rewrite - it requires the whole field on
+    # one line. Fixed copy lives at
     # gitops-repo/observability/grafana/dashboards/alloy-k8s-microservices.json
-    # with that UID replaced by our real "mimir" datasource uid.
+    # with every uid replaced by the token ${MIMIR_UID}, substituted below via
+    # the chart's slice-form datasource mechanism instead - this one works
+    # line-position-independent, so it survives redeployment to any
+    # environment as long as `value` here matches that env's Mimir uid.
     alloy-k8s-microservices:
       url: https://raw.githubusercontent.com/sleepymouse/gitops/main/gitops-repo/observability/grafana/dashboards/alloy-k8s-microservices.json
+      datasource:
+        - name: MIMIR_UID
+          value: mimir
