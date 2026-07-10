@@ -171,7 +171,7 @@ Grafana comes up with five community dashboards pre-provisioned (see [Pre-built 
 - Logs / App
 - K8S Dashboard for Alloy Metrics exported to Mimir - Microservices Overview
 
-Node Exporter Full and Kubernetes / Views / Global should render data immediately (`node-exporter` and `kube-state-metrics` are already scraped by Alloy). JVM (Micrometer) will stay empty until a Spring Boot service exposes `/actuator/prometheus` and Alloy is configured to scrape it — that's an app-side change, not part of this stack.
+None of the five rendered correct data out of the box — provisioning without errors is not the same as showing correct data. See [Dashboard fixes](#dashboard-fixes) below for what was wrong with each one and how it was resolved; that section is worth reading before assuming a blank panel means your cluster is broken.
 
 ## Configuration Reference
 
@@ -226,7 +226,7 @@ The Grafana chart's `download-dashboards` init container fetches each dashboard'
 |---|---|---|
 | Node Exporter Full | 1860 | The de-facto standard dashboard for `node-exporter` host metrics (CPU, memory, disk, network) — most widely used dashboard in the ecosystem, so no reason to build a custom one |
 | Kubernetes / Views / Global | 15757 | Cluster/namespace/pod resource view built on `kube-state-metrics`, actively maintained (dotdc/grafana-dashboards-kubernetes), designed for kube-prometheus-stack but works unmodified against Mimir since it's Prometheus-compatible |
-| JVM (Micrometer) | 4701 | Heap, GC, thread pool metrics for Micrometer-instrumented apps — directly relevant since this project's services are Spring Boot 4. Stays empty until a service exposes `/actuator/prometheus` and Alloy scrapes it (app-side work, not covered by this repo) |
+| JVM (Micrometer) | 4701 | Heap, GC, thread pool metrics for Micrometer-instrumented apps — directly relevant since this project's services are Spring Boot 4. Required both app-side and dashboard-side fixes — see [Dashboard fixes](#dashboard-fixes) |
 | Logs / App | 13639 | Generic Loki log viewer (filter by namespace/pod/container) — covers ad-hoc log browsing without needing to hand-write LogQL in Explore every time |
 | K8S Dashboard for Alloy Metrics exported to Mimir - Microservices Overview | 24685 | Specifically built for the Alloy → Mimir path this stack uses, rather than a generic Prometheus/node-exporter dashboard repurposed for Alloy |
 
@@ -237,6 +237,23 @@ curl -s https://grafana.com/api/dashboards/<gnetId>/revisions | jq '.items[-1].r
 ```
 
 Tempo intentionally has no pre-built dashboard here — trace exploration is normally done via Grafana's **Explore** + **Search** UI and the Tempo service graph (already wired up via `serviceMap.datasourceUid` in the Tempo datasource config), not a static dashboard.
+
+### Dashboard fixes
+
+None of the five dashboards worked correctly out of the box, even though all five provisioned into Grafana without error. **"Provisioned successfully" is not the same as "shows correct data"** — every one of them was built against a differently-configured Grafana/Prometheus/Loki environment than this stack actually runs. Fixes fell into two categories:
+
+- **Infra-side**: the dashboard JSON itself is fine; Alloy's scrape/relabel config was missing something the dashboard's queries depend on. No dashboard fork needed.
+- **Dashboard-side**: the dashboard's queries themselves assume a datasource UID, label, or metric-naming convention this stack doesn't produce. Fixed by forking the JSON into `gitops-repo/observability/grafana/dashboards/` and provisioning it via the chart's `url:` + slice-form `datasource:` mechanism instead of a live `gnetId` pull (see the table above for how that substitution works).
+
+| Dashboard | Problem | Fix | Forked? |
+|---|---|---|---|
+| Node Exporter Full | Blank — Alloy's node-exporter scrape target used the wrong Kubernetes Service DNS name (`prometheus-node-exporter...` instead of the chart's actual `node-exporter-prometheus-node-exporter...` fullname) | Corrected the scrape target address in `gitops-repo/observability/alloy/values/dev.yaml` | No |
+| Kubernetes / Views / Global | Per-pod/per-container CPU, memory and network panels (roughly half the dashboard) blank — Alloy only scraped `kube-state-metrics` and `node-exporter`, never the kubelet's cAdvisor endpoint that `container_*`/`machine_*` metrics come from | Added `discovery.kubernetes` (role=node) + `discovery.relabel` + `prometheus.scrape "cadvisor"` to Alloy, scraping each node's kubelet directly at `:10250/metrics/cadvisor` using the pod's own service-account bearer token (the chart's default ClusterRole already grants the `nodes/metrics` permission this requires) | No |
+| JVM (Micrometer) | Blank/partially blank for two independent reasons. **App-side**: Micrometer's OTLP metrics registry defaulted to pushing to `localhost:4318` (nothing listens there — Alloy is a separate pod), and even once pointed at Alloy, its Service didn't expose the OTLP ports (4317/4318) it listens on internally, only its debug port (12345) — so traces were silently broken too, not just this. **Dashboard-side**: this dashboard assumes the classic `micrometer-registry-prometheus` naming convention, which doesn't match the OTel-derived names/units this stack's `spring-boot-starter-opentelemetry` → Alloy → Mimir path actually produces — e.g. `jvm_threads_live_threads` vs. the real `jvm_threads_live`, `jvm_gc_pause_seconds_*` vs. the real `jvm_gc_pause_milliseconds_*`. Metrics also had no `application` label at all (Spring Boot doesn't add it automatically), so the dashboard's app picker resolved to empty | **App**: added `management.otlp.metrics.export.url` and `management.metrics.tags.application` to the service's `application.properties`. **Infra**: added `alloy.extraPorts` (4317, 4318) in `gitops-repo/observability/alloy/values/dev.yaml` so Alloy's Service exposes what it already listens on. **Dashboard**: forked into `gitops-repo/observability/grafana/dashboards/jvm-micrometer.json` with every affected query renamed/rescaled to the real metric names; the GC "max pause" panel has no direct equivalent under OTel's histogram-based export and is approximated with `histogram_quantile(1.0, ...)` | Yes |
+| Logs / App | The `app` picker had exactly one (useless) option, and selecting it dumped every pod's logs from the whole cluster together — every pod got the same literal `job` label (the Alloy component's own name), because `loki.source.kubernetes "pods"` had no relabeling to turn Kubernetes discovery metadata into real labels | Added a `discovery.relabel "pods"` step in Alloy promoting `namespace`/`pod`/`container` into real labels and deriving `job = namespace/container` per pod | No |
+| K8S Dashboard for Alloy Metrics exported to Mimir (Microservices Overview) | Every panel hardcoded the original author's Mimir datasource UID via the newer multi-line `"datasource": {"type": ..., "uid": ...}` object form, which the chart's plain-string `datasource: Mimir` substitution can't rewrite (it needs the whole field on one line). Also filtered on a `cluster` label that `kube-state-metrics` doesn't set natively | Forked into `gitops-repo/observability/grafana/dashboards/alloy-k8s-microservices.json` with every UID replaced by a `${MIMIR_UID}` token, resolved via the chart's slice-form `datasource:` substitution instead. Added `external_labels = { "cluster" = "dev" }` to Alloy's `prometheus.remote_write` block | Yes |
+
+If a panel is blank after all of the above, check in this order: (1) does the underlying metric/log/trace exist at all in Mimir/Loki (query it directly in **Explore**), (2) do the dashboard's template variables (top-left dropdowns) actually resolve to a value, (3) does the panel's query use a metric/label name that matches what's really being produced — don't assume a community dashboard's naming matches this stack's until you've checked.
 
 ### Helm chart version management
 

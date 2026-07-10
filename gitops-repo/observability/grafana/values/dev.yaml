@@ -88,10 +88,24 @@ dashboards:
       gnetId: 15757
       revision: 43
       datasource: Mimir
+    # Forked from gnetId 4701 (revision 10): built assuming the classic
+    # micrometer-registry-prometheus + /actuator/prometheus scrape path, whose
+    # Prometheus naming convention pluralizes unit suffixes (jvm_threads_live_threads,
+    # jvm_classes_loaded_classes) and always uses seconds. Our Spring Boot services
+    # use spring-boot-starter-opentelemetry's OtlpMeterRegistry instead, pushed
+    # through Alloy's OTLP receiver -> otelcol.exporter.prometheus converter, which
+    # follows OTel's own naming/unit conventions (jvm_threads_live, jvm_classes_loaded,
+    # jvm_gc_pause_milliseconds_* instead of jvm_gc_pause_seconds_*). Fixed copy at
+    # gitops-repo/observability/grafana/dashboards/jvm-micrometer.json renames every
+    # affected query to the OTel-derived metric name and rescales ms-based values
+    # back to seconds to match each panel's existing unit formatting. The GC "max
+    # pause" panel has no direct equivalent (OTel exports a histogram, not a
+    # summary with _max) - approximated via histogram_quantile(1.0, ...).
     jvm-micrometer:
-      gnetId: 4701
-      revision: 10
-      datasource: Mimir
+      url: https://raw.githubusercontent.com/sleepymouse/gitops/main/gitops-repo/observability/grafana/dashboards/jvm-micrometer.json
+      datasource:
+        - name: DS_PROMETHEUS
+          value: mimir
     logs-app:
       gnetId: 13639
       revision: 2
