@@ -16,6 +16,10 @@ service:
 motdBackend:
   host: motd-dev.app-motd-dev.svc.cluster.local
   port: 8000
+  # nginx's resolver directive requires an IP, not a hostname (it can't
+  # recursively resolve the resolver itself). This is the kube-dns
+  # ClusterIP in this cluster (kubectl get svc -n kube-system kube-dns).
+  resolver: "10.96.0.10"
 
 ingress:
   enabled: true
